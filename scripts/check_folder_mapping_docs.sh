@@ -18,19 +18,31 @@ cleanup_temp_dir() {
 
 trap cleanup_temp_dir EXIT
 
-for command_name in tofu jq git; do
-    if ! command -v "$command_name" >/dev/null 2>&1; then
-        printf "[ERRO] %s nao esta instalado ou nao esta no PATH.\n" "$command_name" >&2
-        exit 1
-    fi
-done
+if ! command -v git >/dev/null 2>&1; then
+    printf "[ERRO] git nao esta instalado ou nao esta no PATH.\n" >&2
+    exit 1
+fi
 
-mkdir -p "${TEMP_DIR}/config"
-cp "${REPO_DIR}/variables.tf" "${TEMP_DIR}/config/variables.tf"
-
-console_output=$(printf 'jsonencode(local.vm_folder_by_cidr)\n' | TF_DATA_DIR="${TEMP_DIR}/.tofu-data" tofu -chdir="${TEMP_DIR}/config" console -no-color)
-printf "%s\n" "$console_output" \
-    | jq -er 'fromjson | to_entries | sort_by(.key)[] | "| `\(.key)` | `\(.value)` |"' \
+awk '
+    /^[[:space:]]*vm_folder_by_cidr[[:space:]]*=/ {
+        in_map = 1
+        next
+    }
+    in_map && /^[[:space:]]*}/ {
+        exit
+    }
+    in_map && /^[[:space:]]*"[^"]+"[[:space:]]*=/ {
+        line = $0
+        sub(/^[[:space:]]*"/, "", line)
+        cidr = line
+        sub(/".*/, "", cidr)
+        sub(/^[^=]*=[[:space:]]*"/, "", line)
+        folder = line
+        sub(/".*/, "", folder)
+        printf "| `%s` | `%s` |\n", cidr, folder
+    }
+' "${REPO_DIR}/variables.tf" \
+    | sort \
     > "${TEMP_DIR}/expected.rows"
 
 for doc_path in "${DOC_PATHS[@]}"; do
