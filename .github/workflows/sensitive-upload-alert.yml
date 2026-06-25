@@ -1,0 +1,138 @@
+name: Sensitive upload alert
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  sensitive-upload-alert:
+    name: Detect ignored and sensitive files
+    runs-on: ubuntu-latest
+    env:
+      ALERT_WORKFLOW_PATH: .github/workflows/sensitive-upload-alert.yml
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # actions/checkout@v4
+
+      - name: Scan repository
+        id: scan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          alert_dir="${RUNNER_TEMP}/sensitive-upload-alert"
+          ignored_file="${alert_dir}/ignored-files.txt"
+          sensitive_file="${alert_dir}/sensitive-files.txt"
+          summary_file="${alert_dir}/summary.md"
+          trivy_file="${alert_dir}/trivy-secret.txt"
+          alert=0
+
+          mkdir -p "$alert_dir"
+          : > "$summary_file"
+
+          git ls-files -ci --exclude-standard | sort > "$ignored_file"
+          if [ -s "$ignored_file" ]; then
+            alert=1
+            {
+              echo "### Arquivos versionados que deveriam estar no .gitignore"
+              sed -n '1,80p' "$ignored_file" | sed 's/^/- /'
+              if [ "$(wc -l < "$ignored_file")" -gt 80 ]; then
+                echo "- ..."
+              fi
+              echo
+            } >> "$summary_file"
+          fi
+
+          if ! ./scripts/check_sensitive_files.sh > "$sensitive_file" 2>&1; then
+            alert=1
+            {
+              echo "### Arquivos sensiveis bloqueados pela politica do repositorio"
+              sed -n '1,120p' "$sensitive_file" | sed 's/^/    /'
+              echo
+            } >> "$summary_file"
+          fi
+
+          set +e
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            "$TRIVY_IMAGE" \
+            fs --scanners secret --severity HIGH,CRITICAL --exit-code 1 --no-progress \
+            --skip-dirs .git --skip-dirs .terraform --skip-files "$ALERT_WORKFLOW_PATH" . \
+            > "$trivy_file" 2>&1
+          trivy_status=$?
+          set -e
+
+          if [ "$trivy_status" -ne 0 ]; then
+            alert=1
+            {
+              echo "### Trivy secret scan"
+              echo "Trivy encontrou segredo(s) HIGH/CRITICAL. O conteudo bruto nao foi enviado ao Discord; consulte o log do workflow para detalhes."
+              grep -E '^[^[:space:]].*\(secrets\)$' "$trivy_file" | sed -n '1,80p' | sed 's/^/- /' || true
+              echo
+            } >> "$summary_file"
+          fi
+
+          if [ "$alert" -eq 0 ]; then
+            echo "Nenhum arquivo sensivel ou ignorado indevidamente foi encontrado." > "$summary_file"
+          fi
+
+          {
+            if [ "$alert" -eq 1 ]; then
+              echo "alert=true"
+            else
+              echo "alert=false"
+            fi
+            echo "summary<<SENSITIVE_ALERT_SUMMARY"
+            sed -n '1,180p' "$summary_file"
+            echo "SENSITIVE_ALERT_SUMMARY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Send Discord alert
+        if: steps.scan.outputs.alert == 'true'
+        shell: bash
+        env:
+          SUMMARY: ${{ steps.scan.outputs.summary }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${DISCORD_WEBHOOK_URL:-}" ]; then
+            echo "DISCORD_WEBHOOK_URL secret is not configured; skipping Discord notification."
+            exit 0
+          fi
+
+          run_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          short_sha="${GITHUB_SHA::7}"
+          content=$(cat <<EOF
+          🚨 **Alerta de arquivo sensivel no repositorio**
+          Repo: \`${GITHUB_REPOSITORY}\`
+          Branch: \`${GITHUB_REF_NAME}\`
+          Commit: \`${short_sha}\`
+          Autor: \`${GITHUB_ACTOR}\`
+          Run: ${run_url}
+
+          ${SUMMARY}
+          EOF
+          )
+
+          max_length=1800
+          if [ "${#content}" -gt "$max_length" ]; then
+            content="${content:0:$max_length}"$'\n...\n(Resumo truncado. Consulte o run para detalhes.)'
+          fi
+
+          payload=$(jq -n --arg content "$content" '{content: $content}')
+          curl --fail --show-error --silent \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$DISCORD_WEBHOOK_URL" >/dev/null
+
+      - name: Fail when sensitive files are detected
+        if: steps.scan.outputs.alert == 'true'
+        run: |
+          echo "Arquivos sensiveis ou ignorados indevidamente foram detectados."
+          exit 1

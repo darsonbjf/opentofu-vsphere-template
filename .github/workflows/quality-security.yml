@@ -1,0 +1,80 @@
+name: Quality and security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  quality-security:
+    name: OpenTofu, docs and security checks
+    runs-on: ubuntu-latest
+    env:
+      SHELLCHECK_IMAGE: koalaman/shellcheck-alpine@sha256:9955be09ea7f0dbf7ae942ac1f2094355bb30d96fffba0ec09f5432207544002
+      TFLINT_IMAGE: ghcr.io/terraform-linters/tflint@sha256:80979608a412232a918a0178765b98149bdc43181276cee6612ad1cf4cdf35e1
+      TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
+      TF_DATA_DIR: ${{ runner.temp }}/tofu-data
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Set up OpenTofu
+        uses: opentofu/setup-opentofu@e95ccdd20623115bfd7d47df14a3250d6066a9d0
+        with:
+          tofu_version_file: .opentofu-version
+
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+        with:
+          go-version: "1.25.10"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: "3.12"
+
+      - name: Install TechDocs tooling
+        run: |
+          python3 -m venv "$RUNNER_TEMP/techdocs-venv"
+          "$RUNNER_TEMP/techdocs-venv/bin/python" -m pip install --disable-pip-version-check "mkdocs-techdocs-core==1.6.2"
+          echo "$RUNNER_TEMP/techdocs-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Check OpenTofu formatting
+        run: tofu fmt -check -recursive -diff
+
+      - name: Initialize OpenTofu without backend
+        run: tofu init -backend=false -input=false -no-color
+
+      - name: Validate OpenTofu
+        run: tofu validate -no-color
+
+      - name: Run ShellCheck
+        run: |
+          mapfile -t shell_files < <(git ls-files '*.sh')
+          if [ "${#shell_files[@]}" -gt 0 ]; then
+            docker run --rm -v "$PWD:/mnt" -w /mnt "$SHELLCHECK_IMAGE" shellcheck "${shell_files[@]}"
+          fi
+
+      - name: Run TFLint
+        run: docker run --rm -v "$PWD:/data" -w /data "$TFLINT_IMAGE" --recursive --minimum-failure-severity=warning
+
+      - name: Run Trivy IaC and secret scan
+        run: >-
+          docker run --rm -v "$PWD:/workspace" -w /workspace "$TRIVY_IMAGE"
+          fs --scanners misconfig,secret --severity HIGH,CRITICAL --exit-code 1 --no-progress
+          --skip-dirs .git --skip-dirs .terraform --skip-files .github/workflows/sensitive-upload-alert.yml .
+
+      - name: Check sensitive files
+        run: ./scripts/check_sensitive_files.sh
+
+      - name: Check generated docs
+        run: ./scripts/check_generated_docs.sh
+
+      - name: Build TechDocs
+        run: mkdocs build --strict

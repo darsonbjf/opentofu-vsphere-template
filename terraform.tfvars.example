@@ -1,0 +1,7 @@
+# Arquivo de exemplo para credenciais locais do vSphere.
+# O vCenter e definido pela zona em env_vars/<ambiente>.tfvars.
+username = "usuario@vsphere.local"
+password = "senha_aqui"
+
+# Decisao operacional para ambiente controlado por firewall e restricoes.
+vsphere_allow_unverified_ssl = true

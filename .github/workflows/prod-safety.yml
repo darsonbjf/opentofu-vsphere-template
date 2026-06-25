@@ -1,0 +1,23 @@
+name: Prod safety guardrails
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  prod-safety:
+    name: Check production destroy guardrails
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+
+      - name: Check guardrails
+        run: bash scripts/check_prod_destroy_guardrails.sh

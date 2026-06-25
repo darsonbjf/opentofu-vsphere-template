@@ -1,0 +1,13 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: opentofu-vsphere-template
+  title: Opentofu Vsphere Template
+  description: "Template básico para criar novos projetos usando api da VMware"
+  annotations:
+    github.com/project-slug: darsonbjf/opentofu-vsphere-template
+    backstage.io/techdocs-ref: dir:.
+spec:
+  type: template
+  owner: user:default/darsonbjf
+  lifecycle: unknown

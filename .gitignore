@@ -1,0 +1,58 @@
+# Arquivos de configuração sensíveis do Terraform/OpenTofu
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+*.tfvars.local
+*.tfvars.local.json
+
+# Diretórios e arquivos gerados pelo Terraform/OpenTofu
+.terraform/
+.terraform.d/
+crash.log
+
+# Arquivos de state
+*.tfstate
+*.tfstate.*
+terraform.tfstate.d/
+
+# Arquivos de plano
+tfplan
+tfplan.*
+*.tfplan
+*.plan
+out.plan
+
+# Arquivos de log
+*.log
+
+# Arquivos de credenciais
+*.pem
+*.key
+*.crt
+
+# Arquivos de configuração do Docker
+docker-compose.override.yml
+.env
+.env.*
+
+# Diretórios e arquivos do editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Arquivos de cache
+.cache/
+__pycache__/
+site/
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
+
+# Outros arquivos temporários
+*.bak
+*.tmp
+
+RGW-USERS.md

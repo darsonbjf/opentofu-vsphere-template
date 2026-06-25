@@ -1,0 +1,19 @@
+bucket = "opentofu-vsphere-template-prod"
+key    = "opentofu-vsphere-template/terraform.tfstate"
+# Valor fixo exigido pelo backend S3-compatible. Nao representa zona operacional do Ceph RGW.
+region = "default"
+
+endpoints = {
+  s3 = "https://s3.example.com"
+}
+
+use_path_style       = true
+workspace_key_prefix = "workspaces"
+use_lockfile         = true
+
+skip_credentials_validation = true
+skip_region_validation      = true
+skip_metadata_api_check     = true
+skip_requesting_account_id  = true
+
+insecure = false
