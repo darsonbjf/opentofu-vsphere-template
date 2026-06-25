@@ -40,6 +40,17 @@ jobs:
           "$RUNNER_TEMP/techdocs-venv/bin/python" -m pip install --disable-pip-version-check "mkdocs-techdocs-core==1.6.2"
           echo "$RUNNER_TEMP/techdocs-venv/bin" >> "$GITHUB_PATH"
 
+      - name: Install terraform-docs
+        env:
+          TERRAFORM_DOCS_VERSION: v0.20.0
+          TERRAFORM_DOCS_SHA256: 34ae01772412bb11474e6718ea62113e38ff5964ee570a98c69fafe3a6dff286
+        run: |
+          archive="terraform-docs-${TERRAFORM_DOCS_VERSION}-linux-amd64.tar.gz"
+          curl -fsSL "https://github.com/terraform-docs/terraform-docs/releases/download/${TERRAFORM_DOCS_VERSION}/${archive}" -o "$RUNNER_TEMP/${archive}"
+          printf "%s  %s\n" "$TERRAFORM_DOCS_SHA256" "$RUNNER_TEMP/${archive}" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/${archive}" -C "$RUNNER_TEMP" terraform-docs
+          sudo install -m 0755 "$RUNNER_TEMP/terraform-docs" /usr/local/bin/terraform-docs
+
       - name: Check OpenTofu formatting
         run: tofu fmt -check -recursive -diff
 
