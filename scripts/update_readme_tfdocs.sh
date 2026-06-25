@@ -12,11 +12,6 @@ TERRAFORM_DOCS_IMAGE="quay.io/terraform-docs/terraform-docs@sha256:37329e2dc2518
 
 if command -v terraform-docs >/dev/null 2>&1; then
     terraform-docs markdown table --config "${REPO_DIR}/tfdocs-config.yml" "$REPO_DIR"
-elif command -v go >/dev/null 2>&1; then
-    go run "github.com/terraform-docs/terraform-docs@${TERRAFORM_DOCS_VERSION}" \
-        markdown table \
-        --config "${REPO_DIR}/tfdocs-config.yml" \
-        "$REPO_DIR"
 elif command -v docker >/dev/null 2>&1; then
     docker run --rm \
         -v "${REPO_DIR}:/workspace" \
@@ -25,6 +20,11 @@ elif command -v docker >/dev/null 2>&1; then
         markdown table \
         --config /workspace/tfdocs-config.yml \
         /workspace
+elif command -v go >/dev/null 2>&1; then
+    go run "github.com/terraform-docs/terraform-docs@${TERRAFORM_DOCS_VERSION}" \
+        markdown table \
+        --config "${REPO_DIR}/tfdocs-config.yml" \
+        "$REPO_DIR"
 else
     echo "[ERRO] terraform-docs, go ou docker precisam estar instalados para atualizar o README." >&2
     exit 1
