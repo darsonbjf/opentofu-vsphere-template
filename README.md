@@ -1,8 +1,52 @@
-# 🚀 Template OpenTofu para VMware
+# OpenTofu vSphere Template
 
-Este template fornece uma estrutura automatizada para provisionamento de máquinas virtuais no VMware usando OpenTofu.
+[![Quality and security](https://github.com/darsonbjf/opentofu-vsphere-template/actions/workflows/quality-security.yml/badge.svg)](https://github.com/darsonbjf/opentofu-vsphere-template/actions/workflows/quality-security.yml)
+[![Prod safety guardrails](https://github.com/darsonbjf/opentofu-vsphere-template/actions/workflows/prod-safety.yml/badge.svg)](https://github.com/darsonbjf/opentofu-vsphere-template/actions/workflows/prod-safety.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![OpenTofu](https://img.shields.io/badge/OpenTofu-1.11.x-blue.svg)](.opentofu-version)
 
-## 📋 Pré-requisitos
+Template publico de Infrastructure as Code para provisionar maquinas virtuais no VMware vSphere com OpenTofu, backend remoto S3-compatible, ambientes separados e guardrails contra destruicao acidental de producao.
+
+Este repositorio foi preparado para portfolio DevOps/SRE: exemplos sem dados internos, CI reproduzivel, politica contra secrets, documentacao operacional, TechDocs e evidencias de validacao.
+
+## O Que Este Projeto Demonstra
+
+- IaC com OpenTofu para vSphere, usando provider pinado e lockfile versionado.
+- Separacao entre `dev`, `homolog` e `prod`, com workspaces e backend remoto por ambiente.
+- Guardrails de producao: `prevent_destroy`, bloqueio de `destroy.sh prod`, validacao de plano e processo break-glass documentado.
+- Higiene publica: `.gitignore`, checks contra state/plan/secrets e varredura de marcadores internos.
+- Qualidade continua: `tofu fmt`, `tofu validate`, ShellCheck, TFLint, Trivy, TechDocs e checks customizados no GitHub Actions.
+- Documentacao tecnica gerada e revisavel para ambientes, zonas, backend, operacao e evidencias.
+
+## Arquitetura Operacional
+
+```text
+operator
+  |
+  |  ./apply.sh dev|homolog|prod
+  v
+OpenTofu CLI
+  |
+  |-- backend/*.s3.tfbackend  -> state remoto S3-compatible/Ceph RGW
+  |-- env_vars/*.tfvars       -> contrato de ambiente sem segredos
+  |-- terraform.tfvars        -> credenciais locais ignoradas pelo Git
+  v
+VMware vSphere
+  |
+  |-- datacenter/cluster/datastore por zona
+  |-- redes, DNS e gateway declarados por ambiente
+  |-- VMs nomeadas por workspace, prefixo, nome logico e IP
+```
+
+## Validacao Rapida
+
+```bash
+make validate
+```
+
+Esse target valida formatacao OpenTofu, inicializacao sem backend, `tofu validate`, guardrails de producao, checks publicos e tabelas de documentacao. Consulte [evidencias de validacao](docs/evidence.md) para o escopo completo.
+
+## Pré-Requisitos
 
 - OpenTofu v1.11.6 ou superior, limitado à série 1.11.x até validação da 1.12
 - Acesso ao vCenter
@@ -15,7 +59,7 @@ Este template fornece uma estrutura automatizada para provisionamento de máquin
 - Python 3.12+ para validar o build TechDocs localmente
 - `terraform-docs` opcional; se nao estiver instalado, `./scripts/update_readme_tfdocs.sh` usa `go run` com versao fixada
 
-## 🔧 Estrutura do Projeto
+## Estrutura do Projeto
 
 ```
 .
@@ -34,11 +78,11 @@ Este template fornece uma estrutura automatizada para provisionamento de máquin
 └── workspace.sh           # Gerenciador de workspaces
 ```
 
-## 🚀 Começando
+## Começando
 
 1. Clone o repositório:
 ```bash
-git clone [URL_DO_REPOSITÓRIO]
+git clone https://github.com/darsonbjf/opentofu-vsphere-template.git
 cd opentofu-vsphere-template
 ```
 
@@ -46,7 +90,7 @@ cd opentofu-vsphere-template
    - Copie os arquivos de exemplo e ajuste conforme necessário
    - Defina as configurações específicas de cada ambiente
 
-3. Obtenha no gerenciador de senhas as credenciais RGW do ambiente que sera usado.
+3. Obtenha no gerenciador de segredos da sua organizacao as credenciais RGW/S3-compatible do ambiente que sera usado.
 
 Voce pode exportar as variaveis antes de executar:
 ```bash
@@ -75,7 +119,7 @@ O `terraform.tfvars` local deve conter apenas credenciais/opcoes locais do vSphe
 
 `vsphere_allow_unverified_ssl` tem default `true` por decisao operacional em ambiente controlado por firewall e restricoes. Se uma zona futura exigir outro vCenter, ela deve declarar seu proprio `vsphere_server`; enquanto houver um unico provider por execucao, todas as zonas do mesmo ambiente devem apontar para o mesmo vCenter.
 
-## 📦 Uso
+## Uso
 
 ### Aplicando Mudanças
 
@@ -167,7 +211,7 @@ Esses folders sao fixos no vSphere. Para liberar uma nova faixa de IP, atualize 
 
 Para mais detalhes, consulte [Zonas de Infraestrutura](docs/INFRASTRUCTURE_ZONES.md).
 
-## 🔒 Segurança e Proteções
+## Segurança e Proteções
 
 ### Proteção contra Destruição de Produção
 
@@ -230,6 +274,10 @@ modules/
 
 - [Especificações dos Ambientes](docs/ENVIRONMENTS.md)
 - [Detalhes das VMs](docs/VM_DETAILS.md)
+- [Backend remoto S3-compatible/Ceph RGW](docs/BACKEND_CEPH_RGW.md)
+- [Zonas de infraestrutura](docs/INFRASTRUCTURE_ZONES.md)
+- [Mudancas destrutivas em producao](docs/PROD_DESTRUCTIVE_CHANGES.md)
+- [Evidencias de validacao](docs/evidence.md)
 - [Changelog](docs/CHANGELOG.md)
 
 ## Qualidade e CI
@@ -270,11 +318,12 @@ Evite gerar planos persistentes na raiz, como `tofu plan -out=tfplan`. Os script
 
 O workflow `Prod safety guardrails` continua separado e verifica somente os bloqueios contra destruicao de producao.
 
-## 🔒 Segurança
+## Resumo de Segurança
 
-- O ambiente de produção possui proteções especiais
-- Confirmação dupla para operações destrutivas
-- Separação clara entre ambientes usando workspaces
+- O ambiente de producao possui protecoes especiais e `prevent_destroy`.
+- Operacoes destrutivas exigem plano revisado e confirmacao forte em `dev` e `homolog`.
+- `prod` nao pode ser destruido pelo `destroy.sh`; excecoes seguem processo break-glass documentado.
+- States, planos, credenciais e arquivos locais sensiveis sao bloqueados por `.gitignore`, scripts e CI.
 
 ## 🤝 Contribuindo
 
@@ -302,17 +351,25 @@ Seguimos o padrão [Conventional Commits](https://www.conventionalcommits.org/):
 - Use tags semânticas para releases
 - Atualize a documentação após mudanças significativas
 
-## 🆘 Suporte
+## Suporte
 
-Para suporte, abra uma issue no repositório ou contate a equipe de operações de T.I.
+Para suporte, abra uma issue no repositorio com o contexto, comandos executados e logs sanitizados. Nunca publique credenciais, state, planos ou detalhes reais de inventario.
 
 ## 📜 Licença
 
 Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
-## 🔄 CI/CD
+## CI/CD
 
-A documentação é atualizada automaticamente através dos scripts em `scripts/`:
+Os principais checks locais estao agrupados no `Makefile`:
+
+```bash
+make validate
+make security-check
+make techdocs
+```
+
+A documentação é atualizada através dos scripts em `scripts/`:
 - `update_changelog.sh`: Mantém o CHANGELOG.md atualizado
 - `update_env_docs.sh`: Atualiza a documentação dos ambientes
 - `update_environments_md.sh`: Atualiza o resumo redigido por ambiente

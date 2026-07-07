@@ -68,6 +68,9 @@ jobs:
       - name: Check sensitive files
         run: ./scripts/check_sensitive_files.sh
 
+      - name: Check public readiness
+        run: ./scripts/check_public_readiness.sh
+
       - name: Check folder mapping docs
         run: ./scripts/check_folder_mapping_docs.sh
 

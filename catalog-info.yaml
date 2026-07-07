@@ -2,12 +2,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: opentofu-vsphere-template
-  title: Opentofu Vsphere Template
-  description: "Template básico para criar novos projetos usando api da VMware"
+  title: OpenTofu vSphere Template
+  description: "Public-safe IaC template for VMware vSphere virtual machines with S3-compatible remote state, CI validation, TechDocs and production guardrails."
   annotations:
     github.com/project-slug: darsonbjf/opentofu-vsphere-template
     backstage.io/techdocs-ref: dir:.
 spec:
   type: template
   owner: user:default/darsonbjf
-  lifecycle: unknown
+  lifecycle: production

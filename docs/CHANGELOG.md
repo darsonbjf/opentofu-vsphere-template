@@ -4,6 +4,12 @@ Este documento registra alteracoes feitas pelos fluxos operacionais do OpenTofu.
 
 ## Alteracoes Recentes
 
+### 2026-07-07 - Preparacao publica do template
+
+**Ambiente:** repositorio
+**Alteracao:** README, TechDocs, catalog-info, evidencias, Makefile, Dependabot e check de prontidao publica foram atualizados para publicacao segura e avaliacao de portfolio.
+
+
 ### 2026-05-08 14:30:17 - DEFAULT
 
 **Ambiente:** default
