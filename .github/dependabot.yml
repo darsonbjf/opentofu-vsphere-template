@@ -1,7 +1,7 @@
 version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+
+multi-ecosystem-groups:
+  weekly-maintenance:
     schedule:
       interval: "weekly"
       day: "monday"
@@ -9,15 +9,23 @@ updates:
       timezone: "America/Fortaleza"
     labels:
       - "dependencies"
-      - "github-actions"
+      - "maintenance"
 
-  - package-ecosystem: "terraform"
+updates:
+  - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "08:30"
-      timezone: "America/Fortaleza"
-    labels:
-      - "dependencies"
-      - "opentofu"
+    patterns: ["*"]
+    multi-ecosystem-group: "weekly-maintenance"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+
+  - package-ecosystem: "opentofu"
+    directory: "/"
+    patterns: ["*"]
+    multi-ecosystem-group: "weekly-maintenance"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
